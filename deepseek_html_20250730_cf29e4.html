@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matcha MOAMI POS</title>
+    <style>
+        /* Add this new style for the login modal */
+        .login-modal {
+            display: flex;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .login-container h2 {
+            color: #2a5a2a;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .login-form .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .login-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #2a5a2a;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .login-btn:hover {
+            background-color: #1e3f1e;
+        }
+        
+        /* Rest of your existing styles... */
+        /* ... */
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="login-modal" class="login-modal">
+        <div class="login-container">
+            <h2>Matcha MOAMI Login</h2>
+            <form class="login-form" id="login-form">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rest of your existing HTML... -->
+    <!-- ... -->
+
+    <script>
+        // Global variables
+        let isLoggedIn = false;
+        const API_URL = 'api.php'; // Change this to your API endpoint
+        
+        // ==================== LOGIN FUNCTIONALITY ====================
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    isLoggedIn = true;
+                    document.getElementById('login-modal').style.display = 'none';
+                    init(); // Initialize the POS after successful login
+                } else {
+                    alert(data.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error. Please try again.');
+            }
+        });
+        
+        // Show login modal initially
+        document.getElementById('login-modal').style.display = 'flex';
+        
+        // ==================== API FUNCTIONS ====================
+        async function fetchProducts() {
+            try {
+                const response = await fetch(`${API_URL}?action=get_products`, {
+                    headers: {
+                        'X-Auth': 'Moami:123456' // Basic auth for demo
+                    }
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                return [];
+            }
+        }
+        
+        async function saveProduct(product) {
+            try {
+                const formData = new FormData();
+                formData.append('action', product.id ? 'update_product' : 'add_product');
+                if (product.id) formData.append('id', product.id);
+                formData.append('name', product.name);
+                formData.append('price', product.price);
+                formData.append('stock', product.stock);
+                formData.append('image', product.image);
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'X-Auth': 'Moami:123456'
+                    },
+                    body: formData
+                });
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                return { success: false };
+            }
+        }
+        
+        async function deleteProduct(id) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Auth': 'Moami:123456'
+                    },
+                    body: `action=delete_product&id=${id}`
+                });
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                return { success: false };
+            }
+        }
+        
+        async function fetchTransactions() {
+            try {
+                const response = await fetch(`${API_URL}?action=get_transactions`, {
+                    headers: {
+                        'X-Auth': 'Moami:123456'
+                    }
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching transactions:', error);
+                return [];
+            }
+        }
+        
+        async function saveTransaction(transaction) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Auth': 'Moami:123456'
+                    },
+                    body: `action=add_transaction&number=${encodeURIComponent(transaction.number)}&date=${encodeURIComponent(transaction.date)}&items=${encodeURIComponent(JSON.stringify(transaction.items))}&total=${transaction.total}`
+                });
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                return { success: false };
+            }
+        }
+        
+        async function deleteTransaction(id) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Auth': 'Moami:123456'
+                    },
+                    body: `action=delete_transaction&id=${id}`
+                });
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error deleting transaction:', error);
+                return { success: false };
+            }
+        }
+        
+        // ==================== MODIFY YOUR EXISTING FUNCTIONS ====================
+        // Replace localStorage operations with API calls
+        
+        // In your init function:
+        async function init() {
+            products = await fetchProducts();
+            transactions = await fetchTransactions();
+            
+            // Get the next transaction number
+            const lastTransaction = transactions[0];
+            transactionCounter = lastTransaction ? parseInt(lastTransaction.number.split('-').pop()) + 1 : 1;
+            
+            displayProducts();
+            updateCart();
+            updateDateTime();
+            
+            // ... rest of your init code
+        }
+        
+        // Modify your saveProducts function:
+        async function saveProducts() {
+            // No longer needed as we're using API calls directly
+        }
+        
+        // Modify your checkout function:
+        async function checkout() {
+            if (cart.length === 0) {
+                alert('Your cart is empty!');
+                return;
+            }
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            const transaction = {
+                id: transactionCounter,
+                number: `MTCH-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${transactionCounter.toString().padStart(3, '0')}`,
+                date: new Date().toLocaleString(),
+                items: [...cart],
+                total: total
+            };
+            
+            const result = await saveTransaction(transaction);
+            
+            if (result.success) {
+                transactionCounter++;
+                generateReceipt(transaction);
+                cart = [];
+                updateCart();
+                
+                // Refresh products to get updated stock
+                products = await fetchProducts();
+                displayProducts();
+            } else {
+                alert('Error processing transaction. Please try again.');
+            }
+        }
+        
+        // Modify your edit/delete product functions in admin to use the API calls
+        
+        // ... rest of your existing JavaScript with modifications to use the API
+    </script>
+</body>
+</html>
